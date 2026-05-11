@@ -18,13 +18,16 @@ jobs:
           VOTD=$(curl -s -H "X-YVP-App-Key: ${{ secrets.YV_TOKEN }}" -H "Accept: application/json" "https://api.youversion.com/v1/verse_of_the_days/$DAY")
           PASSAGE_ID=$(echo $VOTD | jq -r '.passage_id')
           
-          # 3. Obtener Texto y Referencia (Mejoramos la extracción para evitar null)
+          # 3. Obtener Texto y Referencia (Extracción Ultra-Robusta)
           PASSAGE=$(curl -s -H "X-YVP-App-Key: ${{ secrets.YV_TOKEN }}" -H "Accept: application/json" "https://api.youversion.com/v1/bibles/147/passages/$PASSAGE_ID")
           
-          # Extraemos el contenido tratando de ser más precisos con JQ
-          TEXT_RAW=$(echo $PASSAGE | jq -r '.content // .text // "Bendiciones para ti"')
-          TEXT=$(echo $TEXT_RAW | sed 's/<[^>]*>//g' | tr -d '\n' | tr -d '\r')
-          REF=$(echo $PASSAGE | jq -r '.reference // .display // ""')
+          # Intentamos extraer de varias formas posibles
+          TEXT=$(echo $PASSAGE | jq -r '.content // .text // .data.content // .data.text // "No se pudo cargar el versículo"')
+          # Limpiamos HTML y saltos de línea
+          TEXT=$(echo $TEXT | sed 's/<[^>]*>//g' | tr -d '\n' | tr -d '\r' | cut -c1-240)
+          
+          REF=$(echo $PASSAGE | jq -r '.reference // .display // .data.reference // ""')
+          if [ "$REF" = "null" ] || [ -z "$REF" ]; then REF="Biblia"; fi
 
           # 4. Enviar directamente a Firebase usando un script de Node.js
           echo "const admin = require('firebase-admin');
@@ -35,7 +38,7 @@ jobs:
             notification: { 
               title: '✨ Dios te dice hoy:', 
               body: \`\"\${process.env.TEXT}\" (\${process.env.REF})\`,
-              image: 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?q=80&w=1000&auto=format&fit=crop' // Imagen de fondo profesional
+              image: 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?q=80&w=1000&auto=format&fit=crop'
             },
             android: { 
               priority: 'high', 
@@ -43,7 +46,6 @@ jobs:
                 channelId: 'daily_verse_channel', 
                 priority: 'max',
                 color: '#D32F2F',
-                sticky: false,
                 visibility: 'public'
               } 
             },
