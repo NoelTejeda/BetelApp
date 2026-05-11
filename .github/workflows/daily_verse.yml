@@ -10,51 +10,74 @@ jobs:
     steps:
       - name: Fetch and Send Notification
         run: |
-          # 1. Obtener día del año
-          DAY=$(date +%j | sed 's/^0*//')
-          echo "Día: $DAY"
-          
-          # 2. Consultar YouVersion
-          RESPONSE=$(curl -s -H "X-YouVersion-Developer-Token: ${{ secrets.YV_TOKEN }}" -H "Accept: application/json" "https://api.youversion.com/v1/moments/verse-of-the-day?day=$DAY&version_id=147")
-          
-          echo "--- INICIO RESPUESTA ---"
-          echo "$RESPONSE"
-          echo "--- FIN RESPUESTA ---"
-          
-          # 3. Extraer Texto y Referencia (Búsqueda agresiva)
-          TEXT=$(echo "$RESPONSE" | jq -r '.content // .verse.content // .data.content // .text // "Bendiciones"')
-          TEXT=$(echo "$TEXT" | sed 's/<[^>]*>//g' | tr -d '\n' | tr -d '\r' | sed 's/\"/\\"/g')
-          REF=$(echo "$RESPONSE" | jq -r '.reference // .verse.reference // .data.reference // "Biblia"')
+          # Todo en uno usando Node.js para máxima fiabilidad
+          cat << 'EOF' > run.js
+          const admin = require('firebase-admin');
+          const axios = require('axios');
 
-          # 4. Enviar directamente a Firebase usando un script de Node.js
-          echo "const admin = require('firebase-admin');
-          const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
-          admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-          
-          const message = {
-            notification: { 
-              title: '✨ Dios te dice hoy:', 
-              body: \`\"\${process.env.TEXT}\" (\${process.env.REF})\`,
-              image: 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?q=80&w=1000&auto=format&fit=crop'
-            },
-            android: { 
-              priority: 'high', 
-              notification: { 
-                channelId: 'daily_verse_channel', 
-                priority: 'max',
-                color: '#D32F2F',
-                visibility: 'public'
-              } 
-            },
-            topic: 'diario'
+          async function start() {
+            try {
+              const day = new Date().getDOY();
+              console.log(`Consultando día: ${day}`);
+              
+              // 1. Obtener Versículo
+              const response = await axios.get(`https://api.youversion.com/v1/moments/verse-of-the-day?day=${day}&version_id=147`, {
+                headers: {
+                  'X-YouVersion-Developer-Token': process.env.YV_TOKEN,
+                  'Accept': 'application/json',
+                  'User-Agent': 'Mozilla/5.0'
+                }
+              });
+
+              console.log('Respuesta recibida correctamente');
+              const data = response.data;
+              const text = (data.content || data.text || "Dios te bendiga hoy").replace(/<[^>]*>/g, "").trim();
+              const ref = data.reference || "Biblia";
+
+              // 2. Inicializar Firebase
+              const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
+              admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+
+              // 3. Enviar Notificación
+              const message = {
+                notification: { 
+                  title: '✨ Dios te dice hoy:', 
+                  body: `"${text}" (${ref})`,
+                  image: 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?q=80&w=1000&auto=format&fit=crop'
+                },
+                android: { 
+                  priority: 'high', 
+                  notification: { channelId: 'daily_verse_channel', priority: 'max', color: '#D32F2F', visibility: 'public' } 
+                },
+                topic: 'diario'
+              };
+
+              await admin.messaging().send(message);
+              console.log('✅ Proceso completado con éxito');
+
+            } catch (error) {
+              console.error('❌ ERROR DETECTADO:');
+              if (error.response) {
+                console.error(`Status: ${error.response.status}`);
+                console.error('Data:', JSON.stringify(error.response.data));
+              } else {
+                console.error(error.message);
+              }
+              process.exit(1);
+            }
+          }
+
+          Date.prototype.getDOY = function() {
+            var start = new Date(this.getFullYear(), 0, 0);
+            var diff = this - start;
+            var oneDay = 1000 * 60 * 60 * 24;
+            return Math.floor(diff / oneDay);
           };
-          
-          admin.messaging().send(message)
-            .then(() => console.log('✅ Notificación premium enviada'))
-            .catch((e) => { console.error(e); process.exit(1); });" > script.js
 
-          npm install firebase-admin
+          start();
+          EOF
+
+          npm install firebase-admin axios
           export FIREBASE_KEY='${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
-          export TEXT="$TEXT"
-          export REF="$REF"
-          node script.js
+          export YV_TOKEN='${{ secrets.YV_TOKEN }}'
+          node run.js
