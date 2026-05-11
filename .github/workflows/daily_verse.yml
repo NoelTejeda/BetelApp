@@ -10,20 +10,16 @@ jobs:
     steps:
       - name: Fetch and Send Notification
         run: |
-          # 1. Diagnóstico de variables
+          # 1. Obtener día del año
           DAY=$(date +%j | sed 's/^0*//')
-          echo "Día del año: $DAY"
-          if [ -z "${{ secrets.YV_TOKEN }}" ]; then echo "❌ ERROR: El secreto YV_TOKEN está vacío en GitHub"; fi
           
-          # 2. Consultar YouVersion (Verbose para ver errores)
-          RESPONSE=$(curl -L -v -H "X-YouVersion-Developer-Token: ${{ secrets.YV_TOKEN }}" -H "Accept: application/json" "https://api.youversion.com/v1/moments/verse-of-the-day?day=$DAY&version_id=147" 2>&1)
+          # 2. Consultar YouVersion
+          RESPONSE=$(curl -s -H "X-YouVersion-Developer-Token: ${{ secrets.YV_TOKEN }}" -H "Accept: application/json" "https://api.youversion.com/v1/moments/verse-of-the-day?day=$DAY&version_id=147")
           
-          # IMPRIMIR RESPUESTA PARA DEPURAR
-          echo "DEBUG - FULL OUTPUT: $RESPONSE"
-          
-          # Extraemos texto (si existe en la respuesta)
-          TEXT=$(echo "$RESPONSE" | grep -o '\"content\":\"[^\"]*\"' | cut -d'\"' -f4 || echo "Versículo del Día")
-          REF=$(echo "$RESPONSE" | grep -o '\"reference\":\"[^\"]*\"' | cut -d'\"' -f4 || echo "Biblia")
+          # 3. Extraer Texto y Referencia
+          TEXT=$(echo $RESPONSE | jq -r '.content // .text // "Bendiciones para ti"')
+          TEXT=$(echo $TEXT | sed 's/<[^>]*>//g' | tr -d '\n' | tr -d '\r' | sed 's/\"/\\"/g')
+          REF=$(echo $RESPONSE | jq -r '.reference // "Biblia"')
 
           # 4. Enviar directamente a Firebase usando un script de Node.js
           echo "const admin = require('firebase-admin');
