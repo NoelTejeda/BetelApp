@@ -34,21 +34,26 @@ jobs:
           const message = {
             notification: { 
               title: '✨ Dios te dice hoy:', 
-              body: \`\"\${process.env.TEXT}\" (\${process.env.REF})\` 
+              body: \`\"\${process.env.TEXT}\" (\${process.env.REF})\`,
+              image: 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?q=80&w=1000&auto=format&fit=crop' // Imagen de fondo profesional
             },
             android: { 
               priority: 'high', 
               notification: { 
                 channelId: 'daily_verse_channel', 
                 priority: 'max',
-                color: '#D32F2F'
+                color: '#D32F2F',
+                sticky: false,
+                visibility: 'public',
+                // Logo en grande al lado de la notificación
+                largeIcon: 'https://raw.githubusercontent.com/NoelTejeda/BetelApp/main/assets/images/logo.png' 
               } 
             },
             topic: 'diario'
           };
           
           admin.messaging().send(message)
-            .then(() => console.log('✅ Notificación enviada con éxito'))
+            .then(() => console.log('✅ Notificación premium enviada'))
             .catch((e) => { console.error(e); process.exit(1); });" > script.js
 
           npm install firebase-admin
