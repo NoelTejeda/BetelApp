@@ -18,10 +18,13 @@ jobs:
           VOTD=$(curl -s -H "X-YVP-App-Key: ${{ secrets.YV_TOKEN }}" -H "Accept: application/json" "https://api.youversion.com/v1/verse_of_the_days/$DAY")
           PASSAGE_ID=$(echo $VOTD | jq -r '.passage_id')
           
-          # 3. Obtener Texto y Referencia (Reina Valera Antigua - 147)
+          # 3. Obtener Texto y Referencia (Mejoramos la extracción para evitar null)
           PASSAGE=$(curl -s -H "X-YVP-App-Key: ${{ secrets.YV_TOKEN }}" -H "Accept: application/json" "https://api.youversion.com/v1/bibles/147/passages/$PASSAGE_ID")
-          TEXT=$(echo $PASSAGE | jq -r '.content' | sed 's/<[^>]*>//g' | tr -d '\n')
-          REF=$(echo $PASSAGE | jq -r '.reference')
+          
+          # Extraemos el contenido tratando de ser más precisos con JQ
+          TEXT_RAW=$(echo $PASSAGE | jq -r '.content // .text // "Bendiciones para ti"')
+          TEXT=$(echo $TEXT_RAW | sed 's/<[^>]*>//g' | tr -d '\n' | tr -d '\r')
+          REF=$(echo $PASSAGE | jq -r '.reference // .display // ""')
 
           # 4. Enviar directamente a Firebase usando un script de Node.js
           echo "const admin = require('firebase-admin');
@@ -30,14 +33,15 @@ jobs:
           
           const message = {
             notification: { 
-              title: '📖 Versículo del Día', 
-              body: \`\${process.env.TEXT} - \${process.env.REF}\` 
+              title: '✨ Dios te dice hoy:', 
+              body: \`\"\${process.env.TEXT}\" (\${process.env.REF})\` 
             },
             android: { 
               priority: 'high', 
               notification: { 
                 channelId: 'daily_verse_channel', 
-                priority: 'max' 
+                priority: 'max',
+                color: '#D32F2F'
               } 
             },
             topic: 'diario'
