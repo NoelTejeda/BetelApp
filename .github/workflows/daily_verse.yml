@@ -45,11 +45,17 @@ jobs:
                 notification: { 
                   title: '✨ Dios te dice hoy:', 
                   body: `"${text}" (${ref})`,
-                  image: 'https://images.unsplash.com/photo-1504052434569-70ad5836ab65?q=80&w=1000&auto=format&fit=crop'
+                  image: 'https://raw.githubusercontent.com/NoelTejeda/BetelApp/main/assets/images/logo.png' // Logo de Betel en grande
                 },
                 android: { 
                   priority: 'high', 
-                  notification: { channelId: 'daily_verse_channel', priority: 'max', color: '#D32F2F', visibility: 'public' } 
+                  notification: { 
+                    channelId: 'daily_verse_channel', 
+                    priority: 'max', 
+                    color: '#D32F2F', 
+                    visibility: 'public',
+                    icon: 'launcher_icon' // Usar el icono de la app
+                  } 
                 },
                 topic: 'diario'
               };
