@@ -10,7 +10,7 @@ jobs:
     steps:
       - name: Fetch and Send Notification
         run: |
-          # Todo en uno usando Node.js para máxima fiabilidad
+          # Todo en uno sincronizado con la lógica de la App
           cat << 'EOF' > run.js
           const admin = require('firebase-admin');
           const axios = require('axios');
@@ -19,26 +19,28 @@ jobs:
             try {
               const day = new Date().getDOY();
               console.log(`Consultando día: ${day}`);
+              const headers = {
+                'X-YVP-App-Key': process.env.YV_TOKEN,
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0'
+              };
               
-              // 1. Obtener Versículo
-              const response = await axios.get(`https://api.youversion.com/v1/moments/verse-of-the-day?day=${day}&version_id=147`, {
-                headers: {
-                  'X-YouVersion-Developer-Token': process.env.YV_TOKEN,
-                  'Accept': 'application/json',
-                  'User-Agent': 'Mozilla/5.0'
-                }
-              });
+              // 1. Obtener ID del Pasaje
+              const votdRes = await axios.get(`https://api.youversion.com/v1/verse_of_the_days/${day}`, { headers });
+              const passageId = votdRes.data.passage_id || votdRes.data.usfm;
+              console.log(`Pasaje ID encontrado: ${passageId}`);
 
-              console.log('Respuesta recibida correctamente');
-              const data = response.data;
+              // 2. Obtener Contenido del Pasaje (RV Antigua - 147)
+              const passageRes = await axios.get(`https://api.youversion.com/v1/bibles/147/passages/${passageId}`, { headers });
+              const data = passageRes.data;
               const text = (data.content || data.text || "Dios te bendiga hoy").replace(/<[^>]*>/g, "").trim();
               const ref = data.reference || "Biblia";
 
-              // 2. Inicializar Firebase
+              // 3. Inicializar Firebase
               const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
               admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 
-              // 3. Enviar Notificación
+              // 4. Enviar Notificación
               const message = {
                 notification: { 
                   title: '✨ Dios te dice hoy:', 
@@ -53,10 +55,10 @@ jobs:
               };
 
               await admin.messaging().send(message);
-              console.log('✅ Proceso completado con éxito');
+              console.log('✅ Notificación enviada con éxito');
 
             } catch (error) {
-              console.error('❌ ERROR DETECTADO:');
+              console.error('❌ ERROR:');
               if (error.response) {
                 console.error(`Status: ${error.response.status}`);
                 console.error('Data:', JSON.stringify(error.response.data));
