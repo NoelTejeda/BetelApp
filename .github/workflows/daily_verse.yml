@@ -44,9 +44,7 @@ jobs:
                 priority: 'max',
                 color: '#D32F2F',
                 sticky: false,
-                visibility: 'public',
-                // Logo en grande al lado de la notificación
-                largeIcon: 'https://raw.githubusercontent.com/NoelTejeda/BetelApp/main/assets/images/logo.png' 
+                visibility: 'public'
               } 
             },
             topic: 'diario'
