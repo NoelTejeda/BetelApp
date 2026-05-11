@@ -12,14 +12,19 @@ jobs:
         run: |
           # 1. Obtener día del año
           DAY=$(date +%j | sed 's/^0*//')
+          echo "Día: $DAY"
           
           # 2. Consultar YouVersion
           RESPONSE=$(curl -s -H "X-YouVersion-Developer-Token: ${{ secrets.YV_TOKEN }}" -H "Accept: application/json" "https://api.youversion.com/v1/moments/verse-of-the-day?day=$DAY&version_id=147")
           
-          # 3. Extraer Texto y Referencia
-          TEXT=$(echo $RESPONSE | jq -r '.content // .text // "Bendiciones para ti"')
-          TEXT=$(echo $TEXT | sed 's/<[^>]*>//g' | tr -d '\n' | tr -d '\r' | sed 's/\"/\\"/g')
-          REF=$(echo $RESPONSE | jq -r '.reference // "Biblia"')
+          echo "--- INICIO RESPUESTA ---"
+          echo "$RESPONSE"
+          echo "--- FIN RESPUESTA ---"
+          
+          # 3. Extraer Texto y Referencia (Búsqueda agresiva)
+          TEXT=$(echo "$RESPONSE" | jq -r '.content // .verse.content // .data.content // .text // "Bendiciones"')
+          TEXT=$(echo "$TEXT" | sed 's/<[^>]*>//g' | tr -d '\n' | tr -d '\r' | sed 's/\"/\\"/g')
+          REF=$(echo "$RESPONSE" | jq -r '.reference // .verse.reference // .data.reference // "Biblia"')
 
           # 4. Enviar directamente a Firebase usando un script de Node.js
           echo "const admin = require('firebase-admin');
