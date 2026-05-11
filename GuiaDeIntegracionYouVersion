@@ -1,0 +1,103 @@
+# Guía de Integración: YouVersion Bible API en Flutter
+
+Esta documentación detalla el proceso de integración de la API de YouVersion para la funcionalidad de **Versículo del Día (VOTD)**, los problemas encontrados con las versiones restringidas y la solución técnica implementada.
+
+## 1. El Problema: Error 403 (Access Denied)
+
+Al intentar obtener el contenido de versiones populares como la **Reina Valera 1960 (ID: 149)** o la **NVI (ID: 128)**, la API devuelve un error `403 Forbidden` con el mensaje:
+`{"message":"Access denied for 149"}`
+
+### Causa
+Muchas versiones modernas de la Biblia están protegidas por derechos de autor. Los desarrolladores deben solicitar permisos específicos o licencias "Fast-track" en el portal de YouVersion para que su `App Key` pueda acceder a estos textos.
+
+## 2. La Solución: Proceso de 2 Pasos y Fallback
+
+Para garantizar que la aplicación siempre muestre el Versículo del Día, se ha implementado un flujo robusto de dos pasos con un sistema de respaldo automático.
+
+### Paso A: Obtener el ID del Versículo
+Se consulta el endpoint de "Momentos" para el día actual del año (1-366).
+- **URL**: `GET https://api.youversion.com/v1/verse_of_the_days/{day_of_year}`
+- **Header**: `X-YVP-App-Key: [TU_CLAVE]`
+
+### Paso B: Obtener el Contenido (con Fallback)
+Se intenta obtener el texto usando la versión preferida. Si falla, se cambia a una versión de dominio público.
+
+1.  **Intento Primario**: Versión 149 (RVR1960).
+2.  **Detección de Error**: Si la respuesta es `403`.
+3.  **Fallback Automático**: Versión 147 (Reina-Valera Antigua).
+
+## 3. Biblias en Español Disponibles
+
+A continuación, se listan las versiones identificadas en la plataforma y su nivel de acceso estimado para claves de desarrollador estándar:
+
+| Versión | ID | Estado de Acceso | Nota |
+| :--- | :--- | :--- | :--- |
+| **Reina-Valera Antigua** | **147** | **Abierto** | Dominio público. Recomendada para fallback. |
+| **Versión Biblia Libre** | **2718** | **Abierto** | Licencia abierta (Creative Commons). |
+| **Reina Valera 1960** | **149** | Restringido | Requiere autorización del editor. |
+| **NVI (Nueva Versión Int.)** | **128** | Restringido | Requiere licencia "Fast-track". |
+| **Biblia de las Américas** | **89** | Restringido | Lockman Foundation. |
+| **Nueva Biblia de las Américas**| **103** | Restringido | Lockman Foundation. |
+
+## 4. Ejemplo de Petición (Dart)
+
+Así es como se genera la petición técnica en el servicio:
+
+```dart
+// 1. Obtener ID del pasaje
+final votdResponse = await http.get(
+  Uri.parse("https://api.youversion.com/v1/verse_of_the_days/$dayOfYear"),
+  headers: {'X-YVP-App-Key': token}
+);
+final passageId = json.decode(votdResponse.body)['passage_id'];
+
+// 2. Obtener contenido con lógica de reintento
+var response = await http.get(
+  Uri.parse("https://api.youversion.com/v1/bibles/149/passages/$passageId"),
+  headers: {'X-YVP-App-Key': token}
+);
+
+if (response.statusCode == 403) {
+  // Fallback a versión abierta
+  response = await http.get(
+    Uri.parse("https://api.youversion.com/v1/bibles/147/passages/$passageId"),
+    headers: {'X-YVP-App-Key': token}
+  );
+}
+```
+
+## 5. Recomendación para el Desarrollador
+Si necesitas obligatoriamente la **RVR1960**, debes ingresar al [YouVersion Developer Portal](https://developers.youversion.com/), ir a la sección de tu App y buscar la opción de solicitar acceso a versiones adicionales o aplicar para el "Fast-track Bible License".
+
+
+
+
+Task: Find Spanish Bible versions on YouVersion with open licenses/public domain
+Plan
+Search for YouVersion API Bible versions list, specifically for Spanish.
+Identify versions that are marked as public domain or open for API access.
+Verify IDs for:
+Reina-Valera Antigua (147)
+Biblia Libre (2718)
+Biblia del Jubileo
+Biblia de las Américas (LBLA)
+Spanish Blue Red and Gold Letter Edition
+Others
+Document the IDs and their license status.
+Provide a comprehensive list to the user.
+Findings
+Reina-Valera Antigua (RVES): ID 147 (Public Domain/Open)
+Biblia Reina Valera 1909 (RVR09): ID 1718 (Public Domain/Open)
+Biblia del Oso 1573 (BDO1573): ID 1715 (Public Domain/Open)
+Versión Biblia Libre (VBL): ID 3291 (Open/Libre)
+Biblia del Jubileo (JBS): ID 1076 (Open)
+Nueva Biblia Viva 2008 (NBV): ID 753 (Open)
+Palabra de Dios para ti (PdDpt): ID 3365 (Open)
+Nuevo Testamento: Segun el texto bizantino (NTBIZ): ID 3539 (Open)
+Spanish Blue Red and Gold Letter Edition: ID 205 (Wait, let me verify this number)
+La Biblia de las Américas (LBLA): ID 89 (Restricted)
+Nueva Biblia de las Américas (NBLA): ID 103 (Restricted)
+Nueva Versión Internacional (NVI): ID 128 (Restricted)
+Reina Valera 1960 (RVR1960): ID 149 (Restricted)
+Traducción en Lenguaje Actual (TLA): ID 176 (Restricted)
+Dios Habla Hoy (DHH): ID 52 (Restricted)

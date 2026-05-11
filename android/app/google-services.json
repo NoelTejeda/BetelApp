@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "949423118434",
+    "project_id": "betel-dd47e",
+    "storage_bucket": "betel-dd47e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:949423118434:android:155edc0e4475315a82d93b",
+        "android_client_info": {
+          "package_name": "com.betel.betel_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAx7jsd2-ckG4-3AolC_3_P6limLgFQJWA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
