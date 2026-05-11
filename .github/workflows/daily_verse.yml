@@ -40,21 +40,22 @@ jobs:
               const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
               admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 
-              // 4. Enviar Notificación
+              // 4. Enviar Notificación Premium
               const message = {
                 notification: { 
                   title: '✨ Dios te dice hoy:', 
                   body: `"${text}" (${ref})`,
-                  image: 'https://raw.githubusercontent.com/NoelTejeda/BetelApp/main/assets/images/logo.png' // Logo de Betel en grande
+                  image: 'https://raw.githubusercontent.com/NoelTejeda/BetelApp/main/assets/images/logo.png' 
                 },
                 android: { 
                   priority: 'high', 
                   notification: { 
                     channelId: 'daily_verse_channel', 
                     priority: 'max', 
-                    color: '#D32F2F', 
+                    color: '#D32F2F', // Rojo Betel
                     visibility: 'public',
-                    icon: 'launcher_icon' // Usar el icono de la app
+                    icon: 'notification_icon', // Referencia al icono de silueta
+                    tag: 'daily_verse'
                   } 
                 },
                 topic: 'diario'
