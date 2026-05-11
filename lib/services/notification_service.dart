@@ -1,11 +1,13 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  static final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
 
   static Future<void> initialize() async {
-    // 1. Solicitar permisos (especialmente en iOS)
+    // 1. Solicitar permisos (crítico para iOS y Android 13+)
     NotificationSettings settings = await _messaging.requestPermission(
       alert: true,
       badge: true,
@@ -17,42 +19,68 @@ class NotificationService {
         print('User granted permission');
       }
       
-      // 2. Suscribirse al tema de versículos diarios
+      // 2. Suscribirse al tema "diario"
       await _messaging.subscribeToTopic('diario');
-      
-      // 3. Obtener el token (opcional, por si quieres enviar a usuarios específicos)
-      // String? token = await _messaging.getToken();
-      // print("FCM Token: $token");
     }
 
-    // 4. Manejar mensajes cuando la app está en primer plano
+    // 3. Crear el canal de notificación para Android (Alta importancia)
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'daily_verse_channel', 
+      'Versículos Diarios', 
+      description: 'Este canal se usa para las notificaciones de versículos diarios.',
+      importance: Importance.max,
+      playSound: true,
+      enableVibration: true,
+    );
+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+
+    // 4. Inicializar notificaciones locales
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/launcher_icon');
+    
+    const InitializationSettings initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+    );
+
+    // CORRECCIÓN v21.0.0: Ahora el parámetro 'settings' es NOMBRADO
+    await _localNotifications.initialize(
+      settings: initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        // Manejar el click
+      },
+    );
+
+    // 5. Manejar mensajes en primer plano
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      if (kDebugMode) {
-        print('Got a message whilst in the foreground!');
-        print('Message data: ${message.data}');
-      }
+      RemoteNotification? notification = message.notification;
+      AndroidNotification? android = message.notification?.android;
 
-      if (message.notification != null) {
-        if (kDebugMode) {
-          print('Message also contained a notification: ${message.notification}');
-        }
-        // Aquí podrías mostrar un snackbar o una notificación local personalizada
+      if (notification != null && android != null && !kIsWeb) {
+        // CORRECCIÓN v21.0.0: 'id', 'title', 'body' y 'notificationDetails' ahora son NOMBRADOS
+        _localNotifications.show(
+          id: notification.hashCode,
+          title: notification.title,
+          body: notification.body,
+          notificationDetails: NotificationDetails(
+            android: AndroidNotificationDetails(
+              channel.id,
+              channel.name,
+              channelDescription: channel.description,
+              icon: android.smallIcon,
+              importance: Importance.max,
+              priority: Priority.high,
+            ),
+          ),
+        );
       }
-    });
-
-    // 5. Manejar clicks en notificaciones cuando la app está en segundo plano o cerrada
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      if (kDebugMode) {
-        print('Notification clicked!');
-      }
-      // Navegar a la pantalla de versículos
     });
   }
 
-  // Este método debe ser una función global o estática para background handling
   @pragma('vm:entry-point')
   static Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-    // Si necesitas procesar algo en segundo plano
     if (kDebugMode) {
       print("Handling a background message: ${message.messageId}");
     }
