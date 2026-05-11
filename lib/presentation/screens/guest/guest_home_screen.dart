@@ -221,8 +221,7 @@ class _VerseOfTheDayCardState extends State<VerseOfTheDayCard> {
                     icon: Icons.share_outlined, 
                     label: 'Compartir',
                     onTap: () {
-                      final message = '*Versículo del Día - Iglesia Betel*\n\n"$_verseText"\n\n— $_verseRef' + 
-                                     (_shareUrl.isNotEmpty ? '\n\nLee más aquí: $_shareUrl' : '');
+                      final message = '*Dios te dice hoy - Iglesia Betel*\n\n"$_verseText"\n\n— $_verseRef\n\n📍 Te esperamos en nuestra congregación:\nhttps://maps.app.goo.gl/iEoEPwUtJ1q3d5SY8';
                       Share.share(message);
                     },
                   ),

@@ -14,7 +14,7 @@ void main() async {
   );
 
   // Configurar notificaciones en segundo plano
-  FirebaseMessaging.onBackgroundMessage(NotificationService.firebaseMessagingBackgroundHandler);
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   // Inicializar servicio de notificaciones
   await NotificationService.initialize();

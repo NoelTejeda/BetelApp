@@ -3,12 +3,14 @@ class UserModel {
   final String name;
   final String email;
   final UserRole role;
+  final bool isActive;
 
   UserModel({
     required this.id,
     required this.name,
     required this.email,
     this.role = UserRole.alumno,
+    this.isActive = true,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map, String documentId) {
@@ -17,6 +19,7 @@ class UserModel {
       name: map['name'] ?? '',
       email: map['email'] ?? '',
       role: _parseRole(map['role']),
+      isActive: map['isActive'] ?? true,
     );
   }
 
@@ -25,6 +28,7 @@ class UserModel {
       'name': name,
       'email': email,
       'role': role.name,
+      'isActive': isActive,
     };
   }
 

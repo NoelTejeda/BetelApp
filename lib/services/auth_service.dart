@@ -65,10 +65,18 @@ class AuthService {
         }
       }
 
-      // Si inició sesión correctamente, obtener su rol desde Firestore
+      // Si inició sesión correctamente, obtener su rol y estado desde Firestore
       final doc = await _firestore.collection('users').doc(userCredential.user!.uid).get();
       if (doc.exists) {
-        return UserModel.fromMap(doc.data()!, doc.id);
+        final user = UserModel.fromMap(doc.data()!, doc.id);
+        
+        // Verificar si el usuario está activo
+        if (!user.isActive) {
+          await _auth.signOut();
+          throw '🚫 Tu acceso ha sido restringido. Contacta a seguridad.';
+        }
+        
+        return user;
       } else {
         // Fallback si por alguna razón no tiene documento en Firestore
         return UserModel(
@@ -76,10 +84,44 @@ class AuthService {
           name: email.split('@')[0],
           email: email,
           role: UserRole.alumno,
+          isActive: true,
         );
       }
     } catch (e) {
       print('Error en login: $e');
+      rethrow;
+    }
+  }
+
+  /// Obtiene todos los usuarios de la comunidad (Para el rol Seguridad)
+  Future<List<UserModel>> getAllUsers() async {
+    try {
+      final snapshot = await _firestore.collection('users').get();
+      return snapshot.docs.map((doc) => UserModel.fromMap(doc.data(), doc.id)).toList();
+    } catch (e) {
+      print('Error en getAllUsers: $e');
+      rethrow;
+    }
+  }
+
+  /// Actualiza los datos de un usuario (Nombre, Rol, etc.)
+  Future<void> updateUser(UserModel user) async {
+    try {
+      await _firestore.collection('users').doc(user.id).update(user.toMap());
+    } catch (e) {
+      print('Error en updateUser: $e');
+      rethrow;
+    }
+  }
+
+  /// Cambia el estado de acceso de un usuario
+  Future<void> toggleUserStatus(String userId, bool currentStatus) async {
+    try {
+      await _firestore.collection('users').doc(userId).update({
+        'isActive': !currentStatus,
+      });
+    } catch (e) {
+      print('Error en toggleUserStatus: $e');
       rethrow;
     }
   }
@@ -109,6 +151,7 @@ class AuthService {
         name: name,
         email: email,
         role: role,
+        isActive: true,
       );
       await _firestore.collection('users').doc(newUser.id).set(newUser.toMap());
 
