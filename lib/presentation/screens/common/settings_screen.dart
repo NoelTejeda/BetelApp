@@ -35,9 +35,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     try {
       if (value) {
-        await FirebaseMessaging.instance.subscribeToTopic('daily_verse');
+        await FirebaseMessaging.instance.subscribeToTopic('diario');
       } else {
-        await FirebaseMessaging.instance.unsubscribeFromTopic('daily_verse');
+        await FirebaseMessaging.instance.unsubscribeFromTopic('diario');
       }
       setState(() {
         _dailyVerseEnabled = value;

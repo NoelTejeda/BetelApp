@@ -18,7 +18,7 @@ class NotificationService {
       }
       
       // 2. Suscribirse al tema de versículos diarios
-      await _messaging.subscribeToTopic('daily_verse');
+      await _messaging.subscribeToTopic('diario');
       
       // 3. Obtener el token (opcional, por si quieres enviar a usuarios específicos)
       // String? token = await _messaging.getToken();
