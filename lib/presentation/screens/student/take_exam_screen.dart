@@ -27,7 +27,7 @@ class _TakeExamScreenState extends State<TakeExamScreen> {
 
     _finalGrade = (correctCount / widget.exam.questions.length) * 100;
 
-    // Guardar resultado en Firestore
+    // Guardar resultado en Firestore incluyendo las respuestas para revisión
     final user = FirebaseAuth.instance.currentUser;
     await FirebaseFirestore.instance.collection('exam_results').add({
       'studentId': user!.uid,
@@ -36,6 +36,7 @@ class _TakeExamScreenState extends State<TakeExamScreen> {
       'examId': widget.exam.id,
       'examTitle': widget.exam.title,
       'grade': _finalGrade,
+      'selectedAnswers': _selectedAnswers.map((key, value) => MapEntry(key.toString(), value)), // Guardamos las respuestas
       'date': FieldValue.serverTimestamp(),
     });
 

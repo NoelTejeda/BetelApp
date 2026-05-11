@@ -281,7 +281,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 ),
                 child: _isLoading 
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('DAR DE ALTA AHORA', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, color: Colors.white)),
+                  : const Text('Registrar Usuario', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, color: Colors.white)),
               ),
             ),
           ],

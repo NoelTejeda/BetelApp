@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../domain/models/section_model.dart';
 import '../../../domain/models/exam_model.dart';
 import 'take_exam_screen.dart';
+import 'review_exam_screen.dart';
 
 class StudentSectionDetailScreen extends StatefulWidget {
   final SectionModel section;
@@ -184,13 +185,40 @@ class _StudentSectionDetailScreenState extends State<StudentSectionDetailScreen>
                     title: Text(exam.title, style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text(hasCompleted ? '✅ Completado - $gradeText' : '${exam.questions.length} preguntas • ${exam.description}'),
                     trailing: ElevatedButton(
-                      onPressed: hasCompleted || exam.questions.isEmpty
+                      onPressed: exam.questions.isEmpty
                         ? null 
-                        : () => Navigator.push(context, MaterialPageRoute(builder: (_) => TakeExamScreen(exam: exam))),
+                        : () {
+                            if (hasCompleted) {
+                              final resultDoc = resultSnapshot.data!.docs.first.data() as Map<String, dynamic>;
+                              final rawAnswers = resultDoc['selectedAnswers'] as Map<String, dynamic>?;
+                              
+                              if (rawAnswers == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Este es un examen antiguo y no guardó tus respuestas.')),
+                                );
+                                return;
+                              }
+
+                              // Convertir llaves de String a Int
+                              final Map<int, int> selectedAnswers = rawAnswers.map(
+                                (k, v) => MapEntry(int.parse(k), v as int)
+                              );
+
+                              Navigator.push(context, MaterialPageRoute(
+                                builder: (_) => ReviewExamScreen(exam: exam, selectedAnswers: selectedAnswers)
+                              ));
+                            } else {
+                              Navigator.push(context, MaterialPageRoute(
+                                builder: (_) => TakeExamScreen(exam: exam)
+                              ));
+                            }
+                          },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: hasCompleted ? Colors.green.withOpacity(0.2) : null,
+                        backgroundColor: hasCompleted ? Colors.blueAccent.withOpacity(0.2) : null,
+                        foregroundColor: hasCompleted ? Colors.blueAccent : null,
+                        side: hasCompleted ? const BorderSide(color: Colors.blueAccent) : null,
                       ),
-                      child: Text(hasCompleted ? 'LISTO' : 'EMPEZAR'),
+                      child: Text(hasCompleted ? 'VER REPASO' : 'EMPEZAR'),
                     ),
                   ),
                 );

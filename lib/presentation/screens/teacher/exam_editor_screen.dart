@@ -99,6 +99,7 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
 
   Widget _buildQuestionCard(int index, QuestionModel q) {
     return Card(
+      key: ValueKey('question_$index'), // Clave estable basada en el índice
       margin: const EdgeInsets.only(bottom: 24),
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -114,11 +115,15 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
                   child: TextFormField(
                     initialValue: q.text,
                     decoration: const InputDecoration(hintText: 'Escribe la pregunta aquí...'),
-                    onChanged: (val) => _questions[index] = QuestionModel(
-                      text: val,
-                      options: q.options,
-                      correctOptionIndex: q.correctOptionIndex,
-                    ),
+                    onChanged: (val) {
+                      setState(() {
+                        _questions[index] = QuestionModel(
+                          text: val,
+                          options: q.options,
+                          correctOptionIndex: q.correctOptionIndex,
+                        );
+                      });
+                    },
                   ),
                 ),
                 IconButton(
@@ -156,13 +161,15 @@ class _ExamEditorScreenState extends State<ExamEditorScreen> {
                           fillColor: q.correctOptionIndex == optIndex ? Colors.green.withOpacity(0.05) : null,
                         ),
                         onChanged: (val) {
-                          List<String> newOpts = List.from(q.options);
-                          newOpts[optIndex] = val;
-                          _questions[index] = QuestionModel(
-                            text: q.text,
-                            options: newOpts,
-                            correctOptionIndex: q.correctOptionIndex,
-                          );
+                          setState(() {
+                            List<String> newOpts = List.from(q.options);
+                            newOpts[optIndex] = val;
+                            _questions[index] = QuestionModel(
+                              text: q.text,
+                              options: newOpts,
+                              correctOptionIndex: q.correctOptionIndex,
+                            );
+                          });
                         },
                       ),
                     ),

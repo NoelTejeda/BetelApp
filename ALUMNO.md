@@ -12,14 +12,15 @@ Este documento describe las funcionalidades y responsabilidades de los usuarios 
 - Entrar al detalle de cada sección de una clase.
 - Leer materiales, ver lecciones y prepararse para las evaluaciones.
 
-### 3. Realizar Exámenes
+### 3. Realizar y Repasar Exámenes
 - Tomar evaluaciones diseñadas por los maestros.
-- Recibir retroalimentación sobre sus conocimientos.
+- **Nuevo**: Ver los resultados detallados de exámenes completados para aprender de los errores (Ver respuestas correctas vs incorrectas).
 
 ## 🛠️ ¿Qué archivos definen este rol?
 - `lib/presentation/screens/student/student_main_screen.dart`: Panel principal del alumno.
 - `lib/presentation/screens/student/student_classes_screen.dart`: Listado de materias.
 - `lib/presentation/screens/student/take_exam_screen.dart`: Interfaz para rendir pruebas.
+- `lib/presentation/screens/student/review_exam_screen.dart`: Nueva interfaz para revisión de resultados.
 
 ## 💡 ¿Cómo funciona?
 El sistema identifica al usuario mediante su cuenta de acceso y filtra automáticamente la base de datos para mostrarle ÚNICAMENTE las clases y exámenes que le corresponden a su nivel o grupo.
