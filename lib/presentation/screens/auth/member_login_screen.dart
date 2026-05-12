@@ -5,6 +5,7 @@ import '../../../domain/models/user_model.dart';
 import '../teacher/teacher_main_screen.dart';
 import '../student/student_main_screen.dart';
 import '../../screens/admin/user_management_screen.dart';
+import '../../screens/admin/admin_dashboard_screen.dart';
 import '../../../main.dart'; // Para AppThemes
 
 class MemberLoginScreen extends StatefulWidget {
@@ -59,7 +60,9 @@ class _MemberLoginScreenState extends State<MemberLoginScreen> {
       );
 
       if (user != null && mounted) {
-        if (user.role == UserRole.seguridad) {
+        if (user.role == UserRole.admin) {
+          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const AdminDashboardScreen()));
+        } else if (user.role == UserRole.seguridad) {
           Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const UserManagementScreen()));
         } else if (user.role == UserRole.maestro) {
           Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const TeacherMainScreen()));

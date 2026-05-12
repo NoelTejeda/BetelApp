@@ -1,16 +1,29 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../services/bible_service.dart';
+import '../../../services/app_content_service.dart';
+import '../../../domain/models/app_content_model.dart';
 import '../common/bible_reader_screen.dart';
 
 class GuestHomeScreen extends StatelessWidget {
   const GuestHomeScreen({Key? key}) : super(key: key);
 
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) {
+      return 'Buenos días';
+    } else if (hour >= 12 && hour < 18) {
+      return 'Buenas tardes';
+    } else {
+      return 'Buenas noches';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -18,13 +31,18 @@ class GuestHomeScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(16.0),
           children: [
-            const Padding(
-              padding: EdgeInsets.only(bottom: 16.0),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16.0),
               child: Text(
-                'Buenas noches, Invitado',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                '${_getGreeting()}, Invitado',
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
             ),
+
+            // Carrusel de Contenido
+            const ContentCarousel(),
+            
+            const SizedBox(height: 24),
             
             // Versículo del Día (Card grande con imagen de fondo)
             const RepaintBoundary(
@@ -56,6 +74,131 @@ class GuestHomeScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class ContentCarousel extends StatefulWidget {
+  const ContentCarousel({super.key});
+
+  @override
+  State<ContentCarousel> createState() => _ContentCarouselState();
+}
+
+class _ContentCarouselState extends State<ContentCarousel> {
+  final AppContentService _contentService = AppContentService();
+  late PageController _pageController;
+  int _currentPage = 0;
+  Timer? _timer;
+
+  final List<String> _fallbackImages = [
+    'assets/images/betel1.jpg',
+    'assets/images/betel2.jpg',
+    'assets/images/betel3.jpg',
+    'assets/images/betel4.jpg',
+  ];
+
+  static const int _infiniteItemCount = 10000;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentPage = (_infiniteItemCount ~/ 2);
+    _pageController = PageController(
+      viewportFraction: 0.92,
+      initialPage: _currentPage,
+    );
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 7), (timer) {
+      if (_pageController.hasClients) {
+        _currentPage++;
+        _pageController.animateToPage(
+          _currentPage,
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<AppContentModel>(
+      stream: _contentService.getContentStream(),
+      builder: (context, snapshot) {
+        final List<String> images = (snapshot.hasData && snapshot.data!.carouselImages.isNotEmpty)
+            ? snapshot.data!.carouselImages
+            : _fallbackImages;
+
+        return SizedBox(
+          height: 400,
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: _infiniteItemCount,
+            onPageChanged: (index) {
+              _currentPage = index;
+            },
+            itemBuilder: (context, index) {
+              final imageUrl = images[index % images.length];
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: _buildCarouselCard(context, imageUrl),
+              );
+            },
+          ),
+        );
+      }
+    );
+  }
+
+  Widget _buildCarouselCard(BuildContext context, String imageUrl) {
+    final bool isNetwork = imageUrl.startsWith('http');
+    
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          )
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: isNetwork 
+          ? CachedNetworkImage(
+              imageUrl: imageUrl,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              placeholder: (context, url) => Container(
+                color: Colors.grey[900],
+                child: const Center(child: CircularProgressIndicator(color: Colors.white24)),
+              ),
+              errorWidget: (context, url, error) => Container(
+                color: Colors.grey[900],
+                child: const Center(child: Icon(Icons.error, color: Colors.white24)),
+              ),
+            )
+          : Image.asset(
+              imageUrl,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+            ),
       ),
     );
   }
@@ -103,10 +246,10 @@ class _VerseOfTheDayCardState extends State<VerseOfTheDayCard> {
       final verseData = await _bibleService.getVerseOfTheDay();
       if (mounted) {
         setState(() {
-          _verseText = verseData['text']!;
-          _verseRef = verseData['reference']!;
-          _verseId = verseData['id']!;
-          _shareUrl = verseData['share_url']!;
+          _verseText = verseData['text'] ?? _verseText;
+          _verseRef = verseData['reference'] ?? _verseRef;
+          _verseId = verseData['id'] ?? _verseId;
+          _shareUrl = verseData['share_url'] ?? "";
           _isLoading = false;
         });
       }
@@ -334,7 +477,7 @@ class ActionCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: isDark ? [] : [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),

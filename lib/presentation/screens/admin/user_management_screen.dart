@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../domain/models/user_model.dart';
 import '../../../services/auth_service.dart';
+import 'app_content_management_screen.dart';
 
 import '../../widgets/custom_drawer.dart';
 
@@ -104,6 +105,14 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         drawer: const CustomDrawer(),
         appBar: AppBar(
           title: const Text('Consola de Seguridad', style: TextStyle(fontWeight: FontWeight.bold)),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.edit_note_rounded, color: Color(0xFFF57C00)),
+              tooltip: 'Gestionar Contenido de la App',
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AppContentManagementScreen())),
+            ),
+            const SizedBox(width: 8),
+          ],
           bottom: const TabBar(
             tabs: [
               Tab(icon: Icon(Icons.people_alt_rounded), text: 'GESTIÓN'),

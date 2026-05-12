@@ -3,6 +3,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../screens/common/drawer_content_screen.dart';
 import '../screens/common/settings_screen.dart';
+import '../../services/app_content_service.dart';
+import '../../services/auth_service.dart';
+import '../../domain/models/app_content_model.dart';
+import '../../domain/models/user_model.dart';
+import '../screens/admin/admin_dashboard_screen.dart';
+import '../screens/admin/user_management_screen.dart';
 import '../../main.dart'; // Para AppThemeScope
 
 class CustomDrawer extends StatelessWidget {
@@ -58,38 +64,79 @@ class CustomDrawer extends StatelessWidget {
               color: const Color(0xFF121212), // Deep Black
               child: Column(
                 children: [
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      children: [
-                        _buildMenuItem(
-                          context, 
-                          title: 'Conócenos', 
-                          icon: Icons.info_outline_rounded,
-                          content: 'Somos la Iglesia Betel, una comunidad dedicada a compartir el amor de Dios y fortalecer la fe de cada persona. Nuestra visión es ser más que una iglesia, una familia unida en Cristo.\n\nContamos con más de 20 años de trayectoria sirviendo a nuestra comunidad y expandiendo el mensaje de esperanza a todas las naciones.',
-                        ),
-                        _buildMenuItem(
-                          context, 
-                          title: 'Ubícanos', 
-                          icon: Icons.location_on_outlined,
-                          content: 'Nos encontramos ubicados en la calle Principal #123, en el corazón de la ciudad.\n\nHorarios de Servicio:\n- Domingo de Celebración: 9:00 AM y 11:30 AM\n- Escuela Dominical: 10:30 AM\n- Miércoles de Oración: 7:00 PM\n- Viernes de Jóvenes: 7:30 PM\n\n¡Te esperamos con los brazos abiertos!',
-                        ),
-                        _buildMenuItem(
-                          context, 
-                          title: 'Comisiones', 
-                          icon: Icons.group_work_outlined,
-                          content: 'Nuestras comisiones son el motor de nuestra iglesia:\n\nConoce todas nuestras comisiones, y si deseas formar parte de alguna, no dudes en comunicarte con el lider de cada comisión',
-                        ),
-                        _buildSimpleMenuItem(
-                          context,
-                          title: 'Ajustes',
-                          icon: Icons.settings_outlined,
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
-                          },
-                        ),
-                      ],
+                   Expanded(
+                    child: StreamBuilder<AppContentModel>(
+                      stream: AppContentService().getContentStream(),
+                      builder: (context, snapshot) {
+                        final content = snapshot.data;
+                        
+                        return ListView(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          children: [
+                            _buildMenuItem(
+                              context, 
+                              title: 'Conócenos', 
+                              icon: Icons.info_outline_rounded,
+                              content: (content?.aboutUs.isNotEmpty ?? false) 
+                                ? content!.aboutUs 
+                                : 'Somos la Iglesia Betel, una comunidad dedicada a compartir el amor de Dios y fortalecer la fe de cada persona. Nuestra visión es ser más que una iglesia, una familia unida en Cristo.\n\nContamos con más de 20 años de trayectoria sirviendo a nuestra comunidad y expandiendo el mensaje de esperanza a todas las naciones.',
+                            ),
+                            _buildMenuItem(
+                              context, 
+                              title: 'Ubícanos', 
+                              icon: Icons.location_on_outlined,
+                              content: (content?.location.isNotEmpty ?? false)
+                                ? content!.location
+                                : 'Nos encontramos ubicados en la calle Principal #123, en el corazón de la ciudad.\n\nHorarios de Servicio:\n- Domingo de Celebración: 9:00 AM y 11:30 AM\n- Escuela Dominical: 10:30 AM\n- Miércoles de Oración: 7:00 PM\n- Viernes de Jóvenes: 7:30 PM\n\n¡Te esperamos con los brazos abiertos!',
+                            ),
+                            _buildMenuItem(
+                              context, 
+                              title: 'Comisiones', 
+                              icon: Icons.group_work_outlined,
+                              content: (content?.commissions.isNotEmpty ?? false)
+                                ? content!.commissions
+                                : 'Nuestras comisiones son el motor de nuestra iglesia:\n\nConoce todas nuestras comisiones, y si deseas formar parte de alguna, no dudes en comunicarte con el lider de cada comisión',
+                            ),
+                            
+                            // Espacio para Administración (Solo si no es invitado)
+                            if (!isGuest)
+                              FutureBuilder<UserModel?>(
+                                future: AuthService().getCurrentUser(),
+                                builder: (context, userSnapshot) {
+                                  final user = userSnapshot.data;
+                                  if (user == null) return const SizedBox.shrink();
+                                  
+                                  if (user.role == UserRole.admin || user.role == UserRole.seguridad) {
+                                    return _buildSimpleMenuItem(
+                                      context,
+                                      title: 'Administración',
+                                      icon: Icons.admin_panel_settings_outlined,
+                                      onTap: () {
+                                        Navigator.pop(context);
+                                        if (user.role == UserRole.admin) {
+                                          Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminDashboardScreen()));
+                                        } else {
+                                          Navigator.push(context, MaterialPageRoute(builder: (_) => const UserManagementScreen()));
+                                        }
+                                      },
+                                    );
+                                  }
+                                  return const SizedBox.shrink();
+                                },
+                              ),
+
+                            _buildSimpleMenuItem(
+                              context,
+                              title: 'Ajustes',
+                              icon: Icons.settings_outlined,
+                              onTap: () {
+                                Navigator.pop(context);
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                              },
+                            ),
+                          ],
+                        );
+                      }
                     ),
                   ),
                   

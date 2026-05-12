@@ -164,4 +164,16 @@ class AuthService {
       await secondaryApp?.delete();
     }
   }
+
+  /// Obtiene los datos del usuario actual autenticado
+  Future<UserModel?> getCurrentUser() async {
+    final user = _auth.currentUser;
+    if (user == null) return null;
+    
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    if (doc.exists) {
+      return UserModel.fromMap(doc.data()!, doc.id);
+    }
+    return null;
+  }
 }

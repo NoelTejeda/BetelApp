@@ -7,6 +7,8 @@ import 'services/notification_service.dart';
 import 'presentation/screens/guest/guest_main_screen.dart';
 import 'presentation/screens/auth/member_login_screen.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -24,12 +26,16 @@ void main() async {
 
 class AppThemeScope extends InheritedWidget {
   final ThemeMode themeMode;
+  final double fontSizeFactor;
   final VoidCallback toggleTheme;
+  final Function(double) updateFontSize;
 
   const AppThemeScope({
     super.key,
     required this.themeMode,
+    required this.fontSizeFactor,
     required this.toggleTheme,
+    required this.updateFontSize,
     required super.child,
   });
 
@@ -39,7 +45,7 @@ class AppThemeScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(AppThemeScope oldWidget) {
-    return themeMode != oldWidget.themeMode;
+    return themeMode != oldWidget.themeMode || fontSizeFactor != oldWidget.fontSizeFactor;
   }
 }
 
@@ -71,29 +77,63 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
+  double _fontSizeFactor = 1.0;
 
-  void _toggleTheme() {
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
     setState(() {
-      if (_themeMode == ThemeMode.system) {
-        final brightness = View.of(context).platformDispatcher.platformBrightness;
-        _themeMode = (brightness == Brightness.dark) ? ThemeMode.light : ThemeMode.dark;
-      } else {
-        _themeMode = (_themeMode == ThemeMode.dark) ? ThemeMode.light : ThemeMode.dark;
+      final isDark = prefs.getBool('is_dark');
+      if (isDark != null) {
+        _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
       }
+      _fontSizeFactor = prefs.getDouble('font_size_factor') ?? 1.0;
     });
+  }
+
+  void _toggleTheme() async {
+    final newMode = (_themeMode == ThemeMode.dark) ? ThemeMode.light : ThemeMode.dark;
+    setState(() {
+      _themeMode = newMode;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_dark', newMode == ThemeMode.dark);
+  }
+
+  void _updateFontSize(double factor) async {
+    setState(() {
+      _fontSizeFactor = factor;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('font_size_factor', factor);
   }
 
   @override
   Widget build(BuildContext context) {
     return AppThemeScope(
       themeMode: _themeMode,
+      fontSizeFactor: _fontSizeFactor,
       toggleTheme: _toggleTheme,
+      updateFontSize: _updateFontSize,
       child: MaterialApp(
         title: 'Betel App',
         debugShowCheckedModeBanner: false,
         themeMode: _themeMode,
         theme: AppThemes.lightTheme,
         darkTheme: AppThemes.darkTheme,
+        builder: (context, child) {
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              textScaler: TextScaler.linear(_fontSizeFactor),
+            ),
+            child: child!,
+          );
+        },
         home: const WelcomeScreen(),
       ),
     );
