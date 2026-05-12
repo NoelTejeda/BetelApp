@@ -93,9 +93,7 @@ class CustomDrawer extends StatelessWidget {
                               context, 
                               title: 'Comisiones', 
                               icon: Icons.group_work_outlined,
-                              content: (content?.commissions.isNotEmpty ?? false)
-                                ? content!.commissions
-                                : 'Nuestras comisiones son el motor de nuestra iglesia:\n\nConoce todas nuestras comisiones, y si deseas formar parte de alguna, no dudes en comunicarte con el lider de cada comisión',
+                              content: 'Nuestras comisiones son el motor de nuestra iglesia:\n\nConoce todas nuestras comisiones, y si deseas formar parte de alguna, no dudes en comunicarte con el lider de cada comisión',
                             ),
                             
                             // Espacio para Administración (Solo si no es invitado)

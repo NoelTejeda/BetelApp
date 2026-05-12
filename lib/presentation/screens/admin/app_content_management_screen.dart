@@ -98,7 +98,7 @@ class _AppContentManagementScreenState extends State<AppContentManagementScreen>
         carouselImages: currentContent.carouselImages,
         aboutUs: _aboutUsController.text,
         location: _locationController.text,
-        commissions: _commissionsController.text,
+        commissions: currentContent.commissions, // Mantenemos la lista actual
       );
       await _contentService.updateContent(updatedContent);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -137,10 +137,8 @@ class _AppContentManagementScreenState extends State<AppContentManagementScreen>
 
           final content = snapshot.data!;
           
-          // Solo actualizamos controladores si están vacíos para no borrar lo que el usuario escribe
           if (_aboutUsController.text.isEmpty) _aboutUsController.text = content.aboutUs;
           if (_locationController.text.isEmpty) _locationController.text = content.location;
-          if (_commissionsController.text.isEmpty) _commissionsController.text = content.commissions;
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -196,8 +194,25 @@ class _AppContentManagementScreenState extends State<AppContentManagementScreen>
               _buildTextField('Conócenos', _aboutUsController, maxLines: 5),
               const SizedBox(height: 16),
               _buildTextField('Ubícanos (Horarios, Dirección)', _locationController, maxLines: 5),
-              const SizedBox(height: 16),
-              _buildTextField('Comisiones', _commissionsController, maxLines: 5),
+              const SizedBox(height: 24),
+              const Card(
+                color: Colors.blueGrey,
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info, color: Colors.white),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Las Comisiones ahora se editan directamente desde su propia pantalla usando el icono del lápiz ✏️.',
+                          style: TextStyle(color: Colors.white, fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: 40),
               ElevatedButton.icon(
                 onPressed: _isSaving ? null : _saveTextContent,

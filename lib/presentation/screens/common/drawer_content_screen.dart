@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-
 import 'package:url_launcher/url_launcher.dart';
-
 import 'commission_detail_screen.dart';
+import '../../../services/app_content_service.dart';
+import '../../../services/auth_service.dart';
+import '../../../domain/models/app_content_model.dart';
+import '../../../domain/models/commission_model.dart';
+import '../../../domain/models/user_model.dart';
 
-class DrawerContentScreen extends StatelessWidget {
+class DrawerContentScreen extends StatefulWidget {
   final String title;
   final String content;
 
@@ -14,12 +17,125 @@ class DrawerContentScreen extends StatelessWidget {
     required this.content,
   }) : super(key: key);
 
+  @override
+  State<DrawerContentScreen> createState() => _DrawerContentScreenState();
+}
+
+class _DrawerContentScreenState extends State<DrawerContentScreen> {
+  final AppContentService _contentService = AppContentService();
+  final AuthService _authService = AuthService();
+  bool _isAdmin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAdmin();
+  }
+
+  Future<void> _checkAdmin() async {
+    final user = await _authService.getCurrentUser();
+    if (mounted) {
+      setState(() {
+        _isAdmin = user?.role == UserRole.admin;
+      });
+    }
+  }
+
   Future<void> _openMap() async {
-    // Coordenadas exactas: 10.518818, -66.921168
     final Uri url = Uri.parse('https://maps.app.goo.gl/iEoEPwUtJ1q3d5SY8');
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       throw Exception('No se pudo abrir el mapa $url');
     }
+  }
+
+  void _editMainParagraph(String currentText) {
+    final controller = TextEditingController(text: currentText);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Editar Párrafo'),
+        content: TextField(
+          controller: controller,
+          maxLines: 10,
+          decoration: const InputDecoration(border: OutlineInputBorder()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR')),
+          ElevatedButton(
+            onPressed: () async {
+              final content = await _contentService.getContent();
+              AppContentModel updated;
+              if (widget.title == 'Conócenos') {
+                updated = AppContentModel(
+                  carouselImages: content.carouselImages,
+                  aboutUs: controller.text,
+                  location: content.location,
+                  commissions: content.commissions,
+                );
+              } else if (widget.title == 'Ubícanos') {
+                updated = AppContentModel(
+                  carouselImages: content.carouselImages,
+                  aboutUs: content.aboutUs,
+                  location: controller.text,
+                  commissions: content.commissions,
+                );
+              } else {
+                // Para comisiones, actualizamos el texto de introducción
+                // (Guardamos esto en un campo extra o similar si lo deseas, 
+                // por ahora usamos el campo 'location' de ejemplo o lo dejamos así)
+                Navigator.pop(context);
+                return;
+              }
+              await _contentService.updateContent(updated);
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text('GUARDAR'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _editCommission(int index, CommissionModel commission) {
+    final nameController = TextEditingController(text: commission.name);
+    final missionController = TextEditingController(text: commission.mission);
+    final functionController = TextEditingController(text: commission.function);
+    final urlController = TextEditingController(text: commission.imageUrl);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Editar: ${commission.name}'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Nombre')),
+              TextField(controller: missionController, decoration: const InputDecoration(labelText: 'Misión'), maxLines: 3),
+              TextField(controller: functionController, decoration: const InputDecoration(labelText: 'Función'), maxLines: 3),
+              TextField(controller: urlController, decoration: const InputDecoration(labelText: 'URL Imagen (Opcional)')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCELAR')),
+          ElevatedButton(
+            onPressed: () async {
+              final updated = CommissionModel(
+                id: commission.id,
+                name: nameController.text,
+                mission: missionController.text,
+                function: functionController.text,
+                imageUrl: urlController.text,
+              );
+              await _contentService.updateCommission(index, updated);
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text('GUARDAR'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -27,180 +143,203 @@ class DrawerContentScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 20)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Hero-like Title Section
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFD32F2F).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                title.toUpperCase(),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFFD32F2F),
-                  letterSpacing: 2.0,
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            
-            // Content Body
-            Text(
-              content,
-              style: TextStyle(
-                fontSize: 18,
-                height: 1.7,
-                color: isDark ? Colors.white.withOpacity(0.9) : Colors.black87,
-                letterSpacing: 0.2,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
+    return StreamBuilder<AppContentModel>(
+      stream: _contentService.getContentStream(),
+      builder: (context, snapshot) {
+        final contentData = snapshot.data;
+        String currentContent = widget.content;
+        
+        // Solo sobrescribimos si el dato de Firebase NO está vacío
+        if (contentData != null) {
+          if (widget.title == 'Conócenos' && (contentData.aboutUs.isNotEmpty)) {
+            currentContent = contentData.aboutUs;
+          }
+          if (widget.title == 'Ubícanos' && (contentData.location.isNotEmpty)) {
+            currentContent = contentData.location;
+          }
+        }
 
-            // Sección Especial para el Mapa (Solo en Ubícanos)
-            if (title == 'Ubícanos') _buildMapSection(context),
-
-            // Sección Especial para Comisiones
-            if (title == 'Comisiones') _buildCommissionsList(context),
-            
-            const SizedBox(height: 40),
-            
-            // Decorative Footer element
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF57C00).withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(2),
+        return Scaffold(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          appBar: AppBar(
+            title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 20)),
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            centerTitle: true,
+          ),
+          body: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD32F2F).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    widget.title.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFFD32F2F),
+                      letterSpacing: 2.0,
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 24),
+                
+                Stack(
+                  children: [
+                    Text(
+                      currentContent,
+                      style: TextStyle(
+                        fontSize: 18,
+                        height: 1.7,
+                        color: isDark ? Colors.white.withOpacity(0.9) : Colors.black87,
+                        letterSpacing: 0.2,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    if (_isAdmin)
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blueAccent),
+                          onPressed: () => _editMainParagraph(currentContent),
+                        ),
+                      ),
+                  ],
+                ),
+
+                if (widget.title == 'Ubícanos') _buildMapSection(context),
+                if (widget.title == 'Comisiones') _buildCommissionsList(context, contentData?.commissions ?? []),
+                
+                const SizedBox(height: 40),
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF57C00).withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      }
     );
   }
 
-  Widget _buildCommissionsList(BuildContext context) {
-    final List<Map<String, String>> commissions = [
-      {'name': 'Comisión Social', 'mission': 'Llevar ayuda y esperanza a los más necesitados de nuestra comunidad.', 'function': 'Organizar jornadas de alimentación, salud y apoyo emocional.', 'image': 'comision_social.png'},
-      {'name': 'Betel "Jovenes de convicción"', 'mission': 'Formar una generación de jóvenes firmes en la fe y con valores cristianos.', 'function': 'Reuniones semanales, congresos y actividades de integración.', 'image': 'jovenes_conviccion.png'},
-      {'name': 'Familias Firmes', 'mission': 'Fortalecer el núcleo familiar bajo los principios bíblicos.', 'function': 'Talleres matrimoniales y consejería familiar.', 'image': 'familias_firmes.png'},
-      {'name': 'Oración e Intersección', 'mission': 'Mantener un altar de oración constante por la iglesia y la nación.', 'function': 'Cadenas de oración y vigilias mensuales.', 'image': 'oracion.png'},
-      {'name': 'Madres que Oran', 'mission': 'Unir a las madres en oración por el futuro de sus hijos.', 'function': 'Reuniones de oración y apoyo entre madres.', 'image': 'madres_que_oran.png'},
-      {'name': 'Ministerio Infantil', 'mission': 'Sembrar la semilla de la palabra de Dios en los más pequeños.', 'function': 'Escuela dominical y eventos infantiles.', 'image': 'ministerio_infantil.png'},
-      {'name': 'Equipo Elite Evangelismo', 'mission': 'Cumplir la gran comisión llevando el mensaje a cada rincón.', 'function': 'Salidas de evangelización y seguimiento a nuevos creyentes.', 'image': 'evangelismo.png'},
-      {'name': 'Destacamento Betel', 'mission': 'Formar carácter y disciplina en niños y adolescentes.', 'function': 'Actividades al aire libre y formación de valores.', 'image': 'destacamento.png'},
-      {'name': 'Águilas Doradas', 'mission': 'Honrar y servir a nuestros adultos mayores.', 'function': 'Actividades de recreación y cuidado espiritual.', 'image': 'aguilas_doradas.png'},
-      {'name': 'Servidores de Protocolo', 'mission': 'Brindar una bienvenida cálida y organizada a cada asistente.', 'function': 'Ujieres, recepción y logística de servicios.', 'image': 'protocolo.png'},
-      {'name': 'Grupo Musical', 'mission': 'Guiar a la congregación a la presencia de Dios a través de la música.', 'function': 'Ensayos, dirección de alabanza y adoración.', 'image': 'grupo_musical.png'},
-      {'name': 'AudioVisual', 'mission': 'Servir como canal técnico para que el mensaje llegue con claridad.', 'function': 'Sonido, luces, proyección y transmisión en vivo.', 'image': 'audiovisual.png'},
-      {'name': 'Eventos Especiales', 'mission': 'Planificar y ejecutar celebraciones que glorifiquen a Dios.', 'function': 'Aniversarios, conferencias y conciertos.', 'image': 'eventos.png'},
-      {'name': 'Educación Cristiana', 'mission': 'Capacitar a los creyentes en el conocimiento profundo de las escrituras.', 'function': 'Instituto bíblico y cursos de discipulado.', 'image': 'educacion.png'},
-      {'name': 'Redes Sociales', 'mission': 'Expandir el mensaje de la iglesia en el mundo digital.', 'function': 'Gestión de contenidos en Instagram, Facebook y YouTube.', 'image': 'redes_sociales.png'},
-    ];
+  Widget _buildCommissionsList(BuildContext context, List<CommissionModel> firebaseCommissions) {
+    // 1. Empezamos con la lista completa de 15 comisiones originales
+    final List<CommissionModel> staticList = _getStaticCommissions();
+    final List<CommissionModel> displayList = List.from(staticList);
+
+    // 2. Si hay datos en Firebase, reemplazamos solo los que han sido editados
+    for (int i = 0; i < firebaseCommissions.length; i++) {
+      if (i < displayList.length) {
+        displayList[i] = firebaseCommissions[i];
+      } else {
+        // Si el admin agregó comisiones nuevas más allá de las 15 originales
+        displayList.add(firebaseCommissions[i]);
+      }
+    }
 
     return Column(
       children: [
         const SizedBox(height: 30),
-        ...commissions.map((commission) => _buildCommissionCard(context, commission)).toList(),
+        ...displayList.asMap().entries.map((entry) {
+          return _buildCommissionCard(context, entry.key, entry.value);
+        }).toList(),
       ],
     );
   }
 
-  Widget _buildCommissionCard(BuildContext context, Map<String, String> commission) {
-    final String imageName = commission['image'] ?? 'commission_bg.png';
-    final String imagePath = 'assets/images/commissions/$imageName';
-
+  Widget _buildCommissionCard(BuildContext context, int index, CommissionModel commission) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       height: 110,
       width: double.infinity,
-      child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CommissionDetailScreen(
-                name: commission['name']!,
-                mission: commission['mission']!,
-                function: commission['function']!,
-              ),
-            ),
-          );
-        },
-        borderRadius: BorderRadius.circular(20),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Background Image with Fallback
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Image.asset(
-                imagePath,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  // Si no encuentra la imagen específica, usa la genérica
-                  return Image.asset(
-                    'assets/images/commission_bg.png',
-                    fit: BoxFit.cover,
-                  );
-                },
-              ),
-            ),
-            // Dark Overlay for readability
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.black.withOpacity(0.6),
-                    Colors.black.withOpacity(0.2),
-                  ],
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                ),
-              ),
-            ),
-            // Centered Text
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  commission['name']!.toUpperCase(),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 1.2,
-                    shadows: [
-                      Shadow(color: Colors.black45, blurRadius: 10, offset: Offset(0, 2)),
-                    ],
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CommissionDetailScreen(
+                    index: index,
+                    commission: commission,
                   ),
                 ),
+              );
+            },
+            borderRadius: BorderRadius.circular(20),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: commission.imageUrl.startsWith('http') 
+                    ? Image.network(commission.imageUrl, fit: BoxFit.cover)
+                    : Image.asset(
+                        'assets/images/commissions/${commission.imageUrl}',
+                        fit: BoxFit.cover,
+                        errorBuilder: (c, e, s) => Image.asset('assets/images/commission_bg.png', fit: BoxFit.cover),
+                      ),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    gradient: LinearGradient(
+                      colors: [Colors.black.withOpacity(0.6), Colors.black.withOpacity(0.2)],
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                    ),
+                  ),
+                ),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      commission.name.toUpperCase(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_isAdmin)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                icon: const Icon(Icons.edit, color: Colors.amberAccent, size: 28),
+                onPressed: () => _editCommission(index, commission),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
+  }
+
+  List<CommissionModel> _getStaticCommissions() {
+    return AppContentModel.defaultCommissions;
   }
 
   Widget _buildMapSection(BuildContext context) {
@@ -213,81 +352,42 @@ class DrawerContentScreen extends StatelessWidget {
             color: Theme.of(context).cardColor,
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.08),
-                blurRadius: 25,
-                offset: const Offset(0, 10),
-              ),
+              BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 25, offset: const Offset(0, 10)),
             ],
             border: Border.all(color: Colors.black.withOpacity(0.05)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Imagen del mapa real
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-                child: Image.asset(
-                  'assets/images/map_real.png',
-                  width: double.infinity,
-                  height: 200,
-                  fit: BoxFit.cover,
-                ),
+                child: Image.asset('assets/images/map_real.png', width: double.infinity, height: 200, fit: BoxFit.cover),
               ),
-              
-              // Información de la Iglesia
               Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Iglesia Betel',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
+                    const Text('Iglesia Betel', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
                     Row(
                       children: [
                         Icon(Icons.location_on, size: 16, color: Colors.grey[600]),
                         const SizedBox(width: 4),
-                        const Text(
-                          '10.518818, -66.921168',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                        const Text('10.518818, -66.921168', style: TextStyle(color: Colors.grey, fontSize: 14)),
                       ],
                     ),
                     const SizedBox(height: 20),
-                    
-                    // Botón abajo de la imagen
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: _openMap,
                         icon: const Icon(Icons.directions_rounded, color: Colors.white),
-                        label: const Text(
-                          'VER EN GOOGLE MAPS',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold, 
-                            letterSpacing: 1.2,
-                            fontSize: 15,
-                          ),
-                        ),
+                        label: const Text('VER EN GOOGLE MAPS', style: TextStyle(fontWeight: FontWeight.bold)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFD32F2F),
-                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 18),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
                       ),
                     ),
@@ -296,11 +396,6 @@ class DrawerContentScreen extends StatelessWidget {
               ),
             ],
           ),
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Presiona el botón para abrir la navegación.',
-          style: TextStyle(color: Colors.grey, fontSize: 13, fontStyle: FontStyle.italic),
         ),
       ],
     );

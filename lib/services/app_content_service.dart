@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../domain/models/app_content_model.dart';
+import '../domain/models/commission_model.dart';
 
 class AppContentService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -55,12 +56,37 @@ class AppContentService {
       'carouselImages': FieldValue.arrayRemove([imageUrl]),
     }, SetOptions(merge: true));
     
-    // Opcional: Eliminar del storage si la URL pertenece a nuestro bucket
     try {
       final ref = _storage.refFromURL(imageUrl);
       await ref.delete();
     } catch (e) {
       print('No se pudo eliminar del storage: $e');
     }
+  }
+
+  /// Actualiza una comisión específica en la lista manteniendo el orden
+  Future<void> updateCommission(int index, CommissionModel updatedCommission) async {
+    final currentContent = await getContent();
+    
+    // Si la lista en Firebase está vacía o es más corta que el índice que queremos editar,
+    // la inicializamos con los valores por defecto para mantener el orden.
+    List<CommissionModel> newList;
+    if (currentContent.commissions.isEmpty) {
+      newList = List.from(AppContentModel.defaultCommissions);
+    } else {
+      newList = List.from(currentContent.commissions);
+      // Si por alguna razón la lista es más corta que el índice (ej. se borraron comisiones),
+      // rellenamos con las originales hasta llegar al índice.
+      while (newList.length <= index) {
+        newList.add(AppContentModel.defaultCommissions[newList.length]);
+      }
+    }
+    
+    // Actualizamos el elemento en la posición exacta
+    newList[index] = updatedCommission;
+
+    await _firestore.collection(_collectionPath).doc(_docId).set({
+      'commissionsList': newList.map((c) => c.toMap()).toList(),
+    }, SetOptions(merge: true));
   }
 }
